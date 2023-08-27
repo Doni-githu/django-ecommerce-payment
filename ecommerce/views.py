@@ -5,58 +5,34 @@ from django.http import JsonResponse
 import json
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
-from .utils import cookieCart
-
-def store(request):
-    if request.user.is_authenticated:
-        customer = request.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
-        cartItems = order.get_cart_items
-    else:
-        cookieData = cookieCart(request=request)
-        items = cookieData['items']
-        order = cookieData['order']
-        cartItems = cookieData['cartItems']
-    products = Product.objects.all()
-    context = {
-        "items": items,
-        "order": order,
-        "cartItems": cartItems,
-        "products": products,
-    }
-    return render(request=request, template_name="store/store.html", context=context)
+from .utils import cookieCart, cartData, guestOrder
 
 
-def cart(request):
-    if request.user.is_authenticated:
-        customer = request.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
-        cartItems = order.get_cart_items
-    else:
-        cookieData = cookieCart(request=request)
-        items = cookieData['items']
-        order = cookieData['order']
-        cartItems = cookieData['cartItems']
-
-    context = {"items": items, "order": order, "cartItems": cartItems}
-    return render(request=request, template_name="store/cart.html", context=context)
+class BaseTemplateView(TemplateView):
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        result = cartData(request=self.request)
+        for i in result:
+            context[i] = result[i]
+        return context
 
 
-def checkout(request):
-    if request.user.is_authenticated:
-        customer = request.user.customer
-        order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        items = order.orderitem_set.all()
-        cartItems = order.get_cart_items
-    else:
-        cookieData = cookieCart(request=request)
-        items = cookieData['items']
-        order = cookieData['order']
-        cartItems = cookieData['cartItems']
-    context = {"items": items, "order": order, "cartItems": cartItems}
-    return render(request=request, template_name="store/checkout.html", context=context)
+class StoreView(BaseTemplateView):
+    template_name = "store/store.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        products = Product.objects.all()
+        context["products"] = products
+        return context
+
+
+class CartView(BaseTemplateView):
+    template_name = "store/cart.html"
+
+
+class CheckOutView(BaseTemplateView):
+    template_name = "store/checkout.html"
 
 
 def updateItem(request):
@@ -88,25 +64,23 @@ def proccessOrder(request):
     if request.user.is_authenticated:
         customer = request.user.customer
         order, created = Order.objects.get_or_create(customer=customer, complete=False)
-        total = float(data["form"]["total"])
-        order.transanction_id = transanction_id
-
-        if total == order.get_cart_total:
-            order.complete = True
-
-        order.save()
-
-        if order.shipping == True:
-            ShippingAddress.objects.create(
-                customer=customer,
-                order=order,
-                state=data["shipping"]["state"],
-                address=data["shipping"]["address"],
-                city=data["shipping"]["city"],
-                zipcode=data["shipping"]["zipcode"],
-            )
-
     else:
-        print("Not logget in...")
+        customer, order = guestOrder(request=request, data=data)
+
+    total = float(data["form"]["total"])
+    order.transanction_id = transanction_id
+    if total == order.get_cart_total:
+        order.complete = True
+    order.save()
+
+    if order.shipping == True:
+        ShippingAddress.objects.create(
+            customer=customer,
+            order=order,
+            state=data["shipping"]["state"],
+            address=data["shipping"]["address"],
+            city=data["shipping"]["city"],
+            zipcode=data["shipping"]["zipcode"],
+        )
 
     return JsonResponse({"message": "Payment submitted.."})

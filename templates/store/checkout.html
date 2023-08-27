@@ -94,6 +94,11 @@
     console.log(csrf_token2) 
     document.getElementById('form-button').addEventListener('click', function(e){
         e.preventDefault()
+        if(!form.address.value || !form.city.value || !form.zipcode.value || !form.state.value){
+            document.getElementById('form-button').style.background = "red"
+            document.getElementById('form-button').textContent = "All fields are required"
+            return
+        }
         console.log('Form submitted...')
         document.getElementById('form-button').classList.add('hidden')
         document.getElementById('payment-info').classList.remove('hidden')
@@ -125,8 +130,7 @@
             shippingFormData.address = form.address.value
             shippingFormData.city = form.city.value
             shippingFormData.state = form.state.value
-            shippingFormData.state = form.state.value
-            shippingFormData.country = form.country.value
+            shippingFormData.zipcode = form.zipcode.value
         }
 
         if(user == "AnonymousUser"){
@@ -146,6 +150,8 @@
         }).then((res) => res.json()).then((data) => {
             console.log('Success: ', data)
             alert('Transaction completed')
+            cart = {}
+            document.cookie = "cart=" + JSON.stringify(cart) + ';domain=;path=/'
             window.location.assign("{% url 'store' %}")
         })
     }
