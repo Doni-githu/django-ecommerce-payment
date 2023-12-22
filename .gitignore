@@ -8,7 +8,6 @@ idea
 *.egg
 
 dist
-db.sqlite3
 sqlite.db
 venv
 
